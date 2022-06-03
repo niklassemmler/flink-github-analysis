@@ -1,0 +1,39 @@
+query getPRs($step: Int!, $cursorTop: String, $cursorReviewThreads: String, $cursorReviewThreadComments: String, $owner: String = "apache", $repository: String = "flink", $branch: String = "master") {
+    repository(owner: $owner, name: $repository) {
+        pullRequests(last: 1, before: $cursorTop, baseRefName: $branch) {
+            edges {
+                node {
+                    number
+                    author {
+                        login
+                    }
+                    reviewThreads(first: 1, after: $cursorReviewThreads) {
+                        nodes {
+                            comments(first: $step, after: $cursorReviewThreadComments) {
+                                nodes {
+                                    author {
+                                        login
+                                    }
+                                    createdAt
+                                    publishedAt
+                                }
+                                pageInfo {
+                                    hasNextPage
+                                    endCursor
+                                }
+                            }
+                        }
+                        pageInfo {
+                            hasNextPage
+                            endCursor
+                        }
+                    }
+                }
+            }
+            pageInfo {
+                hasPreviousPage
+                startCursor
+            }
+        }
+    }
+}

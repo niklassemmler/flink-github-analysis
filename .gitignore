@@ -1,0 +1,8 @@
+secret
+__pycache__
+crawler/data/
+backup.json
+debug.log
+.idea
+.ipynb_checkpoints
+.DS_Store

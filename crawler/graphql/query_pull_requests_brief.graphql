@@ -1,0 +1,63 @@
+query getPRs($step: Int!, $cursor: String, $owner: String = "apache", $repository: String = "flink",
+    $branch: String = "master") {
+    repository(owner: $owner, name: $repository) {
+        pullRequests(first: $step, after: $cursor, baseRefName: $branch) {
+            edges {
+                node {
+                    ...prInfo
+                }
+            }
+            pageInfo {
+                hasNextPage
+                endCursor
+            }
+        }
+    }
+}
+fragment prInfo on PullRequest {
+    title
+    state
+    number
+    createdAt
+    mergedAt
+    closedAt
+    author {
+        login
+    }
+    reviews(first: 1) {
+        nodes {
+            createdAt
+            publishedAt
+            author {
+                login
+            }
+        }
+    }
+    reviewThreads(first: 1) {
+        nodes {
+            comments(first: 1) {
+                nodes {
+                    createdAt
+                    publishedAt
+                    author {
+                        login
+                    }
+                }
+            }
+        }
+    }
+    comments(first: 1) {
+        nodes {
+            createdAt
+            publishedAt
+            author {
+                login
+            }
+        }
+    }
+    labels(first: 10) {
+        nodes {
+            name
+        }
+    }
+}

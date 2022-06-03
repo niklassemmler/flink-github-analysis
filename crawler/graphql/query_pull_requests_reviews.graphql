@@ -1,0 +1,31 @@
+query getPRs($step: Int!, $cursorTop: String, $cursorReviews: String, $owner: String = "apache", $repository: String = "flink", $branch: String = "master") {
+    repository(owner: $owner, name: $repository) {
+        pullRequests(last: 1, before: $cursorTop, baseRefName: $branch) {
+            edges {
+                node {
+                    number
+                    author {
+                        login
+                    }
+                    reviews(first: $step, after: $cursorReviews) {
+                        nodes {
+                            author {
+                                login
+                            }
+                            createdAt
+                            publishedAt
+                        }
+                        pageInfo {
+                            hasNextPage
+                            endCursor
+                        }
+                    }
+                }
+            }
+            pageInfo {
+                hasPreviousPage
+                startCursor
+            }
+        }
+    }
+}

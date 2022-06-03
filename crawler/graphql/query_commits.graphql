@@ -1,0 +1,41 @@
+query getCommits($step: Int!, $cursor: String, $branch: String = "master", $owner: String = "apache",
+  $repository: String = "flink") {
+  repository(owner: $owner, name: $repository) {
+    ref(qualifiedName: $branch) {
+      target {
+        ... on Commit {
+          history(first: $step, after: $cursor) {
+            nodes {
+              message
+              committedDate
+              authoredDate
+              oid
+              deletions
+              additions
+              changedFiles
+              author {
+                ...userInfo
+              }
+              committer {
+                ...userInfo
+              }
+            }
+            totalCount
+            pageInfo {
+              hasNextPage
+              endCursor
+            }
+          }
+        }
+      }
+    }
+  }
+}
+fragment userInfo on GitActor {
+  user {
+    email
+    name
+    login
+    databaseId
+  }
+}
