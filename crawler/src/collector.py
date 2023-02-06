@@ -55,21 +55,26 @@ class DataCollector:
                 data = self._client.send_graphql_query(self._query, variable_values=params)
                 if LOG.isEnabledFor(logging.DEBUG):
                     LOG.debug(f"data: %s", json.dumps(data, indent=2))
-                records = self._records_extractor.run(data)
-                for record in records:
-                    self._record_callback(record)
                 cursors = self._cursor_generator.next_cursors(data)
                 has_next = cursors is not None
+                records = self._records_extractor.run(data)
+                for record in records:
+                    ret = self._record_callback(record)
+                    if not ret:
+                        LOG.info("cannot add more entries")
+                        break
                 self._n += len(records)
                 LOG.info("Collected %d records", self._n)
         except Exception as ex:
             LOG.error(
                 "encountered error with cursor '%s' after %d records. You can resume from this positon via the '-r' argument",
                 cursors, self._n)
-            if cursors:
-                Backup.save(cursors)
             LOG.exception(ex)
             raise
+        finally:
+            if cursors:
+                LOG.debug("storing cursor %s", cursors)
+                Backup.save(cursors)
 
 
 class DataCollectorBuilderException(Exception):
@@ -82,7 +87,7 @@ class DataCollectorBuilder:
         self._query: Optional[str] = None
         self._cursor_generator: Optional[CursorGenerator] = None
         self._records_access: Optional[data_access.AccessPath] = None
-        self._record_callback: Optional[Callable[[dict], NoReturn]] = None
+        self._record_callback: Optional[Callable[[dict], bool]] = None
         self._limit: int = 0
         self._step_size: int = 100
         self._resume = False
@@ -103,7 +108,7 @@ class DataCollectorBuilder:
         self._records_access = records_extractor
         return self
 
-    def add_record_callback(self, record_callback: Callable[[dict], NoReturn]) -> 'DataCollectorBuilder':
+    def add_record_callback(self, record_callback: Callable[[dict], bool]) -> 'DataCollectorBuilder':
         self._record_callback = record_callback
         return self
 
@@ -137,24 +142,48 @@ class DataCollectorBuilder:
 
 
 class JsonWriter:
-    def __init__(self, path: str, formatter: typing.Optional[FormatterType] = None, append: bool = False):
+    def __init__(self, path: str, formatter: typing.Optional[FormatterType] =
+                 None, append: bool = False) -> None:
         LOG.info(f"Writing to {path}")
+        self._has_last = False
+        self._last_key = None
+        self._last_value = None
         if append:
+            if os.path.exists(path):
+                self._maybe_register_last_record()
             self._f = open(path, 'a')
         else:
             self._f = open(path, 'w')
         self._formatter = formatter
 
-    def add(self, record: dict):
-        try:
-            if self._formatter:
-                self._formatter(record)
-            json.dump(record, self._f)
-            self._f.write('\n')
-            self._f.flush()
-        except:
-            self._f.close()
-            raise
+    def _maybe_register_last_record(self):
+        # we assume that the last entry has the oldest timestamp
+        with open(path, 'r') as f:
+            last_line = f.readlines()[-1]
+        last_record = json.loads(last_line)
+        if 'id' in last_record:
+            self._last_key = 'id'
+        elif 'oid' in last_record:
+            self._last_key = 'oid'
+        if self._last_key:
+            self._last_value = last_record[self._last_key]
+            self._has_last = True
+
+    def add(self, record: dict) -> bool:
+        """ returns false if last record is reached otherwise true """
+        if self._formatter:
+            self._formatter(record)
+        if (self._has_last and
+            self._last_key in record and
+            record[self._last_key] == self._last_value):
+            return False
+        json.dump(record, self._f)
+        self._f.write('\n')
+        self._f.flush()
+        return True
+
+    def __del__(self):
+        self._f.close()
 
     def close(self):
         self._f.close()

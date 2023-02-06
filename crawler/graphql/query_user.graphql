@@ -1,0 +1,8 @@
+query getUser($userLogin: String!) {
+  user(login: $userLogin) {
+    company
+    createdAt
+    name
+    id
+  }
+}

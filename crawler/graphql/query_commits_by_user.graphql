@@ -1,0 +1,23 @@
+query getCommits($userId: CommitAuthor!, $step: Int!, $cursor: String, $branch:
+  String!, $owner: String!, $repository: String!, $since: GitTimestamp = "2022-07-04T00:00:00+00:00") {
+  repository(owner: $owner, name: $repository) {
+    ref(qualifiedName: $branch) {
+      target {
+        ... on Commit {
+          history(first: $step, after: $cursor, author: $userId, since: $since) {
+            nodes {
+              message
+              committedDate
+              authoredDate
+              oid
+            }
+            pageInfo {
+              hasNextPage
+              endCursor
+            }
+          }
+        }
+      }
+    }
+  }
+}
